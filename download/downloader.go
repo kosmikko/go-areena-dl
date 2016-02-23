@@ -8,9 +8,12 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/cookiejar"
+	"net/url"
 	"os"
+	"strings"
 
 	"github.com/grafov/m3u8"
+	"github.com/mitchellh/ioprogress"
 )
 
 var log = getLogger()
@@ -133,7 +136,9 @@ func (d *Downloader) downloadSegmentToFile(uri string) {
 		log.Errorf("Received HTTP %d for %s", resp.StatusCode, uri)
 		return
 	}
-	_, err = io.Copy(d.output, resp.Body)
+
+	progress := progressBar(uri, resp)
+	_, err = io.Copy(d.output, progress)
 	if err != nil {
 		log.Errorf("Failed to write file: %s", err.Error())
 		return
@@ -160,6 +165,22 @@ func (d *Downloader) request(url string) (resp *http.Response, err error) {
 		resp.Body.Close()
 	}
 	return
+}
+
+func progressBar(uri string, resp *http.Response) *ioprogress.Reader {
+	parsedURL, _ := url.Parse(uri)
+	pathComponents := strings.Split(parsedURL.Path, "/")
+	filename := pathComponents[len(pathComponents)-1]
+	bar := ioprogress.DrawTextFormatBar(20)
+	customDrawFunc := ioprogress.DrawTerminalf(os.Stdout, func(progress, total int64) string {
+		return fmt.Sprintf("%s %s %20s", filename, bar(progress, total), ioprogress.DrawTextFormatBytes(progress, total))
+	})
+	progress := &ioprogress.Reader{
+		Reader:   resp.Body,
+		Size:     resp.ContentLength,
+		DrawFunc: customDrawFunc,
+	}
+	return progress
 }
 
 func stripInvalidChars(str string) string {
