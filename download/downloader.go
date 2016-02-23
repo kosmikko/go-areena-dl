@@ -46,7 +46,7 @@ func (d *Downloader) DownloadVideo(url string, outputFilename string) (err error
 	d.output = out
 	err = d.fetchPlaylist(url)
 	if err != nil {
-		log.Infof("Video downloaded successfully")
+		log.Info("Video downloaded successfully")
 	}
 	return
 }
